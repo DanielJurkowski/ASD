@@ -148,7 +148,7 @@ class AdjacencyMatrix:
         return '\n'.join(strings)
 
 
-def matrix(graph_1, graph_2):
+def matrix_zero(graph_1, graph_2):
     matrix = np.zeros((graph_1.order(), graph_2.order()))
     matrix_1 = np.array(graph_1.matrix)
     matrix_2 = np.array(graph_2.matrix)
@@ -164,14 +164,14 @@ def matrix(graph_1, graph_2):
     return matrix
 
 
-def prune(matrix, graph_1, graph_2):
+def prune(matrix, matrix_copy, graph_1, graph_2):
     graph_1_matrix = np.array(graph_1.matrix)
     graph_2_matrix = np.array(graph_2.matrix)
 
     row, column = matrix.shape
     for row in range(row):
         for column in range(column):
-            if matrix[row, column] == 1:
+            if matrix_copy[row, column] == 1:
                 stop = False
 
                 for i in graph_1_matrix[row]:
@@ -180,37 +180,143 @@ def prune(matrix, graph_1, graph_2):
                             stop = True
                             break
 
-                        if stop:
-                            break
+                    if stop:
+                        break
 
                 else:
                     matrix[row, column] = 0
 
 
-def ullman_1(used_columns, current_row, graph_1, graph_2):
-    matrix = np.zeros((graph_1.order(), graph_2.order()))
+def ullman_1(graph_1, graph_2, matrix, used_columns=[], current_row=0):
+    global recursion_counter
+    recursion_counter += 1
+
+    graph_1_matrix = np.array(graph_1.matrix)
+    graph_2_matrix = np.array(graph_2.matrix)
 
     if current_row == matrix.shape[0]:
-        matrix_copy = matrix.copy
+        matrix_temp = matrix @ (matrix @ graph_2_matrix).T
+
+        if np.all(graph_1_matrix <= matrix_temp):
+            return matrix
+
+        return False
+
+    matrix_copy = deepcopy(matrix)
+
+    for column in range(matrix.shape[1]):
+        if column not in used_columns:
+            matrix_copy[current_row, :] = 0
+            matrix_copy[current_row, column] = 1
+            used_columns.append(column)
+            return_value = ullman_1(graph_1, graph_2, matrix_copy, used_columns, current_row + 1)
+
+            if return_value is not False:
+                return return_value
+
+            used_columns.remove(column)
+
+    return False
 
 
-    matrix_copy = matrix.copy
+def ullman_2(graph_1, graph_2, matrix, used_columns=[], current_row=0):
+    global recursion_counter
+    recursion_counter += 1
+
+    graph_1_matrix = np.array(graph_1.matrix)
+    graph_2_matrix = np.array(graph_2.matrix)
+
+    if current_row == matrix.shape[0]:
+        matrix_temp = matrix @ (matrix @ graph_2_matrix).T
+
+        if np.all(graph_1_matrix <= matrix_temp):
+            return matrix
+
+        return False
+
+    matrix_copy = deepcopy(matrix)
+
+    for column in range(matrix.shape[1]):
+        if column not in used_columns:
+            if matrix[current_row, column] != 1:
+                continue
+
+            matrix_copy[current_row, :] = 0
+            matrix_copy[current_row, column] = 1
+            used_columns.append(column)
+            return_value = ullman_2(graph_1, graph_2, matrix_copy, used_columns, current_row + 1)
+
+            if return_value is not False:
+                return return_value
+
+            used_columns.remove(column)
+
+    return False
 
 
-def main():
-    graph_P = [('A', 'B', 1), ('B', 'C', 1), ('A', 'C', 1)]
+def ullman_3(graph_1, graph_2, matrix, used_columns=[], current_row=0):
+    global recursion_counter
+    recursion_counter += 1
 
-    graf_P = AdjacencyMatrix()
-    for edge in graph_P:
-        graf_P.insert_edge(Vertex(edge[0]), Vertex(edge[1]), Edge(edge[2]))
+    graph_1_matrix = np.array(graph_1.matrix)
+    graph_2_matrix = np.array(graph_2.matrix)
 
-    graph_G = [('A', 'B', 1), ('B', 'F', 1), ('B', 'C', 1), ('C', 'D', 1), ('C', 'E', 1), ('D', 'E', 1)]
+    if current_row == matrix.shape[0]:
+        matrix_temp = matrix @ (matrix @ graph_2_matrix).T
 
-    graf_G = AdjacencyMatrix()
-    for edge in graph_G:
-        graf_G.insert_edge(Vertex(edge[0]), Vertex(edge[1]), Edge(edge[2]))
+        if np.all(graph_1_matrix <= matrix_temp):
+            return matrix
 
-    print(matrix(graf_P, graf_G))
+        return False
+
+    matrix_copy = deepcopy(matrix)
+
+    prune(matrix, matrix_copy, graph_1, graph_2)
+
+    for column in range(matrix.shape[1]):
+        if column not in used_columns:
+            if matrix[current_row, column] != 1:
+                continue
+
+            matrix_copy[current_row, :] = 0
+            matrix_copy[current_row, column] = 1
+            used_columns.append(column)
+            return_value = ullman_3(graph_1, graph_2, matrix_copy, used_columns, current_row + 1)
+
+            if return_value is not False:
+                return return_value
+
+            used_columns.remove(column)
+
+    return False
 
 
-main()
+graph_P = [('A', 'B', 1), ('B', 'C', 1), ('A', 'C', 1)]
+
+graf_P = AdjacencyMatrix()
+for edge in graph_P:
+    graf_P.insert_edge(Vertex(edge[0]), Vertex(edge[1]), Edge(edge[2]))
+
+graph_G = [('A', 'B', 1), ('B', 'F', 1), ('B', 'C', 1), ('C', 'D', 1), ('C', 'E', 1), ('D', 'E', 1)]
+
+graf_G = AdjacencyMatrix()
+for edge in graph_G:
+    graf_G.insert_edge(Vertex(edge[0]), Vertex(edge[1]), Edge(edge[2]))
+
+# ullman wersja 1
+matrix_1 = np.zeros((graf_P.order(), graf_G.order()))
+
+recursion_counter = 0
+print(ullman_1(graf_P, graf_G, matrix_1), recursion_counter)
+
+# ullman wersja 2
+matrix_2 = matrix_zero(graf_P, graf_G)
+
+recursion_counter = 0
+print(ullman_2(graf_P, graf_G, matrix_2), recursion_counter)
+
+# ullman wersja 3
+matrix_2 = matrix_zero(graf_P, graf_G)
+
+recursion_counter = 0
+print(ullman_3(graf_P, graf_G, matrix_2), recursion_counter)
